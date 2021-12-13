@@ -365,6 +365,7 @@ type encOpts struct {
 	quoted bool
 	// escapeHTML causes '<', '>', and '&' to be escaped in JSON strings.
 	escapeHTML bool
+	nilempty   bool
 }
 
 type encoderFunc func(e *encodeState, v reflect.Value, opts encOpts)
@@ -758,6 +759,7 @@ FieldLoop:
 			e.WriteString(f.nameNonEsc)
 		}
 		opts.quoted = f.quoted
+		opts.nilempty = f.nilEmpty
 		f.encoder(e, fv, opts)
 	}
 	if next == '{' {
@@ -831,7 +833,7 @@ func newMapEncoder(t reflect.Type) encoderFunc {
 	return me.encode
 }
 
-func encodeByteSlice(e *encodeState, v reflect.Value, _ encOpts) {
+func encodeByteSlice(e *encodeState, v reflect.Value, opts encOpts) {
 	if v.IsNil() {
 		e.WriteString("null")
 		return
@@ -867,7 +869,7 @@ type sliceEncoder struct {
 }
 
 func (se sliceEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
-	if v.IsNil() {
+	if v.IsNil() && !opts.nilempty {
 		e.WriteString("null")
 		return
 	}
@@ -1184,6 +1186,7 @@ type field struct {
 	index     []int
 	typ       reflect.Type
 	omitEmpty bool
+	nilEmpty  bool
 	quoted    bool
 
 	encoder encoderFunc
@@ -1299,6 +1302,7 @@ func typeFields(t reflect.Type) structFields {
 						index:     index,
 						typ:       ft,
 						omitEmpty: opts.Contains("omitempty"),
+						nilEmpty:  opts.Contains("nilempty"),
 						quoted:    quoted,
 					}
 					field.nameBytes = []byte(field.name)
